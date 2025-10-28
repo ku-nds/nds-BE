@@ -1,7 +1,7 @@
 import { getAllFestivals, getNearbyFestivals } from '../services/festivalService.js';
 
 /**
- * ✅ 전체 축제 조회
+ * 전체 축제 조회
  */
 export const getAllFestivalsController = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ export const getAllFestivalsController = async (req, res) => {
 };
 
 /**
- * ✅ 반경 3km 이내 축제 조회 (PostGIS 활용)
+ * 반경 3km 이내 축제 조회 (PostGIS 활용)
  * 예시 요청: /api/festivals/nearby?lat=37.5665&lng=126.9780
  */
 export const getNearbyFestivalsController = async (req, res) => {
@@ -36,6 +36,30 @@ export const getNearbyFestivalsController = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ getNearbyFestivalsController Error:', error);
+    res.status(500).json({ error: '서버 에러 발생' });
+  }
+};
+
+import { getFestivalsByCategory } from '../services/festivalService.js';
+
+/**
+ * 카테고리별 축제 조회
+ * 예시 요청: /api/festivals?category=공연
+ */
+export const getFilteredFestivalController = async (req, res) => {
+  try {
+    const { category } = req.query;
+    console.log('🎯 category query param:', category); // ✅ 확인용
+
+    // 카테고리가 없으면 전체 조회
+    const festivals = await getFestivalsByCategory(category);
+
+    res.status(200).json({
+      count: festivals.length,
+      data: festivals,
+    });
+  } catch (error) {
+    console.error('❌ getFilteredFestivalController Error:', error);
     res.status(500).json({ error: '서버 에러 발생' });
   }
 };
