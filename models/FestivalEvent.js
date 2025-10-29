@@ -37,12 +37,13 @@ const FestivalEvent = sequelize.define('FestivalEvent', {
   apply_date: { type: DataTypes.STRING(50) },
   citizen_org: { type: DataTypes.STRING(100) },
   is_free: { type: DataTypes.STRING(50) },
+  is_indoor: { type: DataTypes.BOOLEAN, allowNull: true },
 
   // 위치 관련
   latitude: { type: DataTypes.DOUBLE },
   longitude: { type: DataTypes.DOUBLE },
 
-  // ✅ PostGIS용 좌표 필드
+  // PostGIS용 좌표 필드
   location: { type: DataTypes.GEOMETRY('POINT', 4326), allowNull: true },
 
   // 메타데이터
