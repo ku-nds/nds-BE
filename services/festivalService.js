@@ -49,7 +49,7 @@ export const getNearbyFestivals = async (lat, lng) => {
       ST_DistanceSphere(location, ST_MakePoint(:lng, :lat)) AS distance
     FROM festival_events
     WHERE location IS NOT NULL
-      AND ST_DistanceSphere(location, ST_MakePoint(:lng, :lat)) <= 50
+      AND ST_DistanceSphere(location, ST_MakePoint(:lng, :lat)) <= 3000
       AND (place NOT ILIKE '%hall%' AND place NOT ILIKE '%층%')
     ORDER BY distance ASC;
   `;
