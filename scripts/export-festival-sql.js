@@ -7,24 +7,30 @@ const outputFile = './festival_events_export.sql';
   try {
     console.log('📦 festival_events 테이블 데이터 조회 중...');
 
-    // 1️⃣ 스키마(컬럼명) 조회
+    // 1️⃣ 스키마 정보 조회 (data_type 포함)
     const [columnsResult] = await sequelize.query(`
-      SELECT column_name
+      SELECT column_name, data_type, udt_name
       FROM information_schema.columns
       WHERE table_name = 'festival_events'
       ORDER BY ordinal_position;
     `);
 
+    // 컬럼명 리스트
     const columns = columnsResult.map(c => c.column_name);
     console.log('🧱 컬럼 목록:', columns);
 
     // 2️⃣ 전체 데이터 조회
     const [rows] = await sequelize.query(`SELECT * FROM festival_events;`);
 
-    // 3️⃣ CREATE TABLE 쿼리 생성 (기본 타입 단순화)
+    // 3️⃣ CREATE TABLE 쿼리 생성 (location은 geometry로 명시)
     let createTableSQL = `
 CREATE TABLE festival_events (
-  ${columns.map(c => `"${c}" TEXT`).join(',\n  ')}
+${columns
+  .map(c => {
+    if (c === 'location') return `  "${c}" geometry(Point,4326)`;
+    return `  "${c}" TEXT`;
+  })
+  .join(',\n')}
 );
 `;
 
@@ -33,12 +39,35 @@ CREATE TABLE festival_events (
     for (const row of rows) {
       const values = columns.map(col => {
         const val = row[col];
+
+        // ✅ geometry 컬럼
+        if (col === 'location') {
+          if (!val) return 'NULL';
+          try {
+            // Sequelize에서 geometry 컬럼은 { type: 'Point', coordinates: [lon, lat] } 형태
+            const { coordinates } = val;
+            if (Array.isArray(coordinates)) {
+              const [lon, lat] = coordinates;
+              return `ST_SetSRID(ST_MakePoint(${lon}, ${lat}), 4326)`;
+            }
+          } catch {
+            return 'NULL';
+          }
+        }
+
+        // ✅ null
         if (val === null || val === undefined) return 'NULL';
+        // ✅ boolean
         if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+        // ✅ number
         if (typeof val === 'number') return val;
+        // ✅ 문자열 escape
         return `'${String(val).replace(/'/g, "''")}'`;
       });
-      insertSQL += `INSERT INTO festival_events (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${values.join(', ')});\n`;
+
+      insertSQL += `INSERT INTO festival_events (${columns
+        .map(c => `"${c}"`)
+        .join(', ')}) VALUES (${values.join(', ')});\n`;
     }
 
     // 5️⃣ 파일로 저장

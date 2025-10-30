@@ -5,8 +5,8 @@ import { Op } from 'sequelize';
 /**
  * 전체 축제 조회
  */
-export const getAllFestivals = async () => {
-  return await FestivalEvent.findAll({
+export const getAllFestivals = async ({ limit, offset }) => {
+  return await FestivalEvent.findAndCountAll({
     attributes: [
       'id',
       'event_name',
@@ -26,13 +26,15 @@ export const getAllFestivals = async () => {
       'main_image',
     ],
     order: [['start_date', 'ASC']],
+    limit,
+    offset,
   });
 };
 
 /**
  * PostGIS 기반 반경 3km 이내 축제 조회
  */
-export const getNearbyFestivals = async (lat, lng) => {
+export const getNearbyFestivals = async (lat, lng, { limit, offset }) => {
   const query = `
     SELECT
       id,
@@ -51,14 +53,26 @@ export const getNearbyFestivals = async (lat, lng) => {
     WHERE location IS NOT NULL
       AND ST_DistanceSphere(location, ST_MakePoint(:lng, :lat)) <= 3000
       AND (place NOT ILIKE '%hall%' AND place NOT ILIKE '%층%')
-    ORDER BY distance ASC;
+    ORDER BY distance ASC
+    LIMIT :limit OFFSET :offset;
+  `;
+
+  const countQuery = `
+    SELECT COUNT(1) AS total
+    FROM festival_events
+    WHERE location IS NOT NULL
+      AND ST_DistanceSphere(location, ST_MakePoint(:lng, :lat)) <= 3000
+      AND (place NOT ILIKE '%hall%' AND place NOT ILIKE '%층%');
   `;
 
   const [rows] = await sequelize.query(query, {
+    replacements: { lat, lng, limit, offset },
+  });
+  const [countRows] = await sequelize.query(countQuery, {
     replacements: { lat, lng },
   });
 
-  return rows;
+  return { rows, count: Number(countRows?.[0]?.total || 0) };
 };
 
 /**
@@ -66,7 +80,7 @@ export const getNearbyFestivals = async (lat, lng) => {
  * - category 파라미터가 있으면 필터링
  * - 없으면 전체 목록 반환
  */
-export const getFestivalsByCategory = async (category) => {
+export const getFestivalsByCategory = async (category, { limit, offset }) => {
     const whereCondition = {};
   
     // category 파라미터가 있을 때만 조건 추가
@@ -74,7 +88,7 @@ export const getFestivalsByCategory = async (category) => {
       whereCondition.category = { [Op.iLike]: `%${category}%` }; // 대소문자 무시 부분 일치 검색
     }
   
-    const festivals = await FestivalEvent.findAll({
+    const festivals = await FestivalEvent.findAndCountAll({
       attributes: [
         'id',
         'event_name',
@@ -90,9 +104,11 @@ export const getFestivalsByCategory = async (category) => {
       ],
       where: whereCondition,
       order: [['start_date', 'ASC']],
+      limit,
+      offset,
     });
   
-    return festivals;
+    return festivals; // { rows, count }
   };
 
 /**
@@ -103,7 +119,7 @@ export const getFestivalsByCategory = async (category) => {
  * 이 함수는 DB 컬럼이 boolean이 아닌 text로 되어 있을 경우를 대비해
  * 먼저 boolean 비교를 시도하고 실패하면 문자열 비교('true'/'false', 't'/'f')로 폴백합니다.
  */
-export const getFestivalsByType = async (type) => {
+export const getFestivalsByType = async (type, { limit, offset }) => {
   if (!type) return [];
 
   const wantIndoor = type === 'indoor';
@@ -128,12 +144,14 @@ export const getFestivalsByType = async (type) => {
 
   // 우선적으로 boolean 비교 시도 (정상적으로 boolean 컬럼이면 이게 통과)
   try {
-    const festivals = await FestivalEvent.findAll({
+    const festivals = await FestivalEvent.findAndCountAll({
       attributes,
       where: { is_indoor: wantIndoor },
       order: [['start_date', 'ASC']],
+      limit,
+      offset,
     });
-    return festivals;
+    return festivals; // { rows, count }
   } catch (err) {
     // boolean vs text 오류 등으로 실패하면 아래에서 폴백
     console.warn('boolean 비교 실패 — 문자열 폴백 시도:', err.message || err);
@@ -154,13 +172,15 @@ export const getFestivalsByType = async (type) => {
           [Op.or]: strFalseCandidates.map(v => ({ is_indoor: v })),
         };
 
-    const festivals = await FestivalEvent.findAll({
+    const festivals = await FestivalEvent.findAndCountAll({
       attributes,
       where: whereCondition,
       order: [['start_date', 'ASC']],
+      limit,
+      offset,
     });
 
-    return festivals;
+    return festivals; // { rows, count }
   } catch (err) {
     // 여기까지 실패하면 좀 더 직접적인 쿼리(캐스팅)로 시도하거나 에러를 던진다.
     console.error('문자열 폴백도 실패했습니다:', err);

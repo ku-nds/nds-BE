@@ -5,10 +5,18 @@ import { getAllFestivals, getNearbyFestivals, getFestivalsByType } from '../serv
  */
 export const getAllFestivalsController = async (req, res) => {
   try {
-    const festivals = await getAllFestivals();
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+    const offset = (page - 1) * limit;
+
+    const { rows, count } = await getAllFestivals({ limit, offset });
     res.status(200).json({
-      count: festivals.length,
-      data: festivals,
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      count: rows.length,
+      data: rows,
     });
   } catch (error) {
     console.error('❌ getAllFestivalsController Error:', error);
@@ -28,11 +36,19 @@ export const getNearbyFestivalsController = async (req, res) => {
       return res.status(400).json({ error: 'lat, lng 쿼리 파라미터가 필요합니다.' });
     }
 
-    const festivals = await getNearbyFestivals(lat, lng);
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+    const offset = (page - 1) * limit;
+
+    const { rows, count } = await getNearbyFestivals(lat, lng, { limit, offset });
 
     res.status(200).json({
-      count: festivals.length,
-      data: festivals,
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      count: rows.length,
+      data: rows,
     });
   } catch (error) {
     console.error('❌ getNearbyFestivalsController Error:', error);
@@ -51,12 +67,19 @@ export const getFilteredFestivalController = async (req, res) => {
     const { category } = req.query;
     console.log('🎯 category query param:', category); // ✅ 확인용
 
-    // 카테고리가 없으면 전체 조회
-    const festivals = await getFestivalsByCategory(category);
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+    const offset = (page - 1) * limit;
+
+    const { rows, count } = await getFestivalsByCategory(category, { limit, offset });
 
     res.status(200).json({
-      count: festivals.length,
-      data: festivals,
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil(count / limit),
+      count: rows.length,
+      data: rows,
     });
   } catch (error) {
     console.error('❌ getFilteredFestivalController Error:', error);
@@ -87,11 +110,22 @@ export const getFestivalsByTypeController = async (req, res) => {
     }
 
     // 서비스에 'indoor' | 'outdoor' 전달
-    const festivals = await getFestivalsByType(type);
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
+    const offset = (page - 1) * limit;
+
+    const result = await getFestivalsByType(type, { limit, offset });
+    // getFestivalsByType은 findAndCountAll을 반환함
+    const rows = result.rows || result; // 안전 폴백
+    const total = result.count ?? rows.length;
 
     res.status(200).json({
-      count: festivals.length,
-      data: festivals,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      count: rows.length,
+      data: rows,
     });
   } catch (error) {
     console.error('❌ getFestivalsByTypeController Error:', error);
