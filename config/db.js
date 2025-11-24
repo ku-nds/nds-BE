@@ -11,6 +11,7 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT,
     dialect: 'postgres',
     logging: console.log, // 실행 쿼리 확인용
+    ssl: true,
   }
 );
 
