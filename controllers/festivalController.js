@@ -1,4 +1,4 @@
-import { getAllFestivals, getNearbyFestivals, getFestivalsByType, getFestivalsByCategory, getShortestPath } from '../services/festivalService.js';
+import { getAllFestivals, getNearbyFestivals, getFestivalsByType, getFestivalsByCategory, getShortestPath, getFestivalById, getNearbyAmenities } from '../services/festivalService.js';
 
 /**
  * 전체 축제 조회
@@ -148,3 +148,39 @@ export const getShortestPathController = async (req, res) => {
         res.status(500).json({ error: '서버 에러 발생' });
     }
 }
+
+/**
+ * 특정 축제 주변의 편의시설 정보를 조회
+ * 예시 요청: /api/festivals/:id/amenities?radius=1500
+ */
+export const getFestivalAmenitiesController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const radius = Math.min(Math.max(parseInt(req.query.radius || '1000', 10), 500), 5000); // 500m ~ 5000m 제한
+
+    const festival = await getFestivalById(id);
+
+    if (!festival) {
+      return res.status(404).json({ error: '축제를 찾을 수 없습니다.' });
+    }
+    if (!festival.latitude || !festival.longitude) {
+      return res.status(400).json({ error: '축제 위치 정보(위도, 경도)가 없습니다.' });
+    }
+
+    const amenities = await getNearbyAmenities(festival.latitude, festival.longitude, radius);
+
+    res.status(200).json({
+      festivalId: id,
+      festivalName: festival.event_name,
+      amenities,
+    });
+  } catch (error) {
+    console.error('❌ getFestivalAmenitiesController Error:', error);
+    if (error.message.includes('KAKAO_REST_API_KEY')) {
+        res.status(500).json({ error: '카카오 API 키가 설정되지 않았습니다. .env 파일을 확인하세요.' });
+    } else {
+        res.status(500).json({ error: '서버 에러 발생' });
+    }
+  }
+};
+

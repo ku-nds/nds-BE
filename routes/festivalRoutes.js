@@ -4,7 +4,8 @@ import {
   getNearbyFestivalsController,
   getFilteredFestivalController,
   getFestivalsByTypeController,
-  getShortestPathController
+  getShortestPathController,
+  getFestivalAmenitiesController
 } from '../controllers/festivalController.js';
 
 const router = express.Router();
@@ -176,6 +177,78 @@ router.get('/outdoor', getFestivalsByTypeController);
  *         description: Invalid input, e.g., not enough festival IDs.
  */
 router.post('/route', getShortestPathController);
+
+/**
+ * @swagger
+ * /api/festivals/{id}/amenities:
+ *   get:
+ *     summary: Retrieve nearby amenities (subway, restaurant, parking) for a specific festival
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: ID of the festival
+ *       - in: query
+ *         name: radius
+ *         schema:
+ *           type: integer
+ *           minimum: 500
+ *           maximum: 5000
+ *           default: 1000
+ *         required: false
+ *         description: Search radius in meters (500m to 5000m)
+ *     responses:
+ *       200:
+ *         description: An object containing lists of nearby subways, restaurants, and parking lots.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 festivalId:
+ *                   type: integer
+ *                 festivalName:
+ *                   type: string
+ *                 amenities:
+ *                   type: object
+ *                   properties:
+ *                     subway:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           place_name: { type: string }
+ *                           distance: { type: string }
+ *                           x: { type: string }
+ *                           y: { type: string }
+ *                     restaurant:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           place_name: { type: string }
+ *                           distance: { type: string }
+ *                           x: { type: string }
+ *                           y: { type: string }
+ *                     parking:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           place_name: { type: string }
+ *                           distance: { type: string }
+ *                           x: { type: string }
+ *                           y: { type: string }
+ *       400:
+ *         description: Bad request, e.g., missing festival location info.
+ *       404:
+ *         description: Festival not found.
+ *       500:
+ *         description: Server error or Kakao API key not configured.
+ */
+router.get('/:id/amenities', getFestivalAmenitiesController);
 
 // 반드시 default export 추가!
 export default router;

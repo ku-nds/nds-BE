@@ -1,3 +1,4 @@
+import axios from 'axios';
 import sequelize from '../config/db.js';
 import FestivalEvent from '../models/FestivalEvent.js';
 import { Op } from 'sequelize';
@@ -28,6 +29,33 @@ export const getAllFestivals = async ({ limit, offset }) => {
     order: [['start_date', 'ASC']],
     limit,
     offset,
+  });
+};
+
+/**
+ * 특정 ID의 축제 정보 조회
+ * @param {number} id - 축제 ID
+ */
+export const getFestivalById = async (id) => {
+  return await FestivalEvent.findByPk(id, {
+    attributes: [
+      'id',
+      'event_name',
+      'category',
+      'district',
+      'place',
+      'organizer',
+      'theme_category',
+      'start_date',
+      'end_date',
+      'datetime_info',
+      'event_time',
+      'latitude',
+      'longitude',
+      'is_free',
+      'homepage',
+      'main_image',
+    ],
   });
 };
 
@@ -285,3 +313,55 @@ export async function getShortestPath(festival_ids) {
         total_distance_km: minDistance
     };
 }
+
+/**
+ * 특정 위도/경도 주변의 편의시설(지하철역, 맛집, 주차장) 정보를 카카오 API를 통해 조회합니다.
+ * @param {number} latitude - 중심점의 위도
+ * @param {number} longitude - 중심점의 경도
+ * @param {number} radius - 검색 반경 (미터 단위, 기본값 1000m)
+ * @returns {object} 주변 편의시설 목록 (subway, restaurant, parking)
+ */
+export const getNearbyAmenities = async (latitude, longitude, radius = 1000) => {
+  const KAKAO_API_KEY = process.env.KAKAO_REST_API_KEY;
+  if (!KAKAO_API_KEY) {
+    throw new Error('KAKAO_REST_API_KEY is not set in environment variables.');
+  }
+
+  const KAKAO_API_BASE_URL = 'https://dapi.kakao.com/v2/local/search/category.json';
+
+  // 카테고리 그룹 코드
+  const categories = {
+    subway: 'SW8', // 지하철역
+    restaurant: 'FD6', // 음식점
+    parking: 'PK6', // 주차장
+  };
+
+  const amenityPromises = Object.entries(categories).map(async ([type, categoryCode]) => {
+    try {
+      const response = await axios.get(KAKAO_API_BASE_URL, {
+        headers: {
+          Authorization: `KakaoAK ${KAKAO_API_KEY}`,
+        },
+        params: {
+          category_group_code: categoryCode,
+          x: longitude, // 카카오는 x가 경도, y가 위도
+          y: latitude,
+          radius: radius,
+          size: 10, // 각 카테고리별 최대 10개 결과
+        },
+      });
+      return { type, items: response.data.documents };
+    } catch (error) {
+      console.error(`Error fetching ${type} from Kakao API:`, error.message);
+      return { type, items: [] }; // 에러 발생 시 빈 배열 반환
+    }
+  });
+
+  const results = await Promise.all(amenityPromises);
+
+  // 결과를 { subway: [...], restaurant: [...], parking: [...] } 형태로 변환
+  return results.reduce((acc, current) => {
+    acc[current.type] = current.items;
+    return acc;
+  }, {});
+};
