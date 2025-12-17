@@ -3,7 +3,8 @@ import {
   getAllFestivalsController,
   getNearbyFestivalsController,
   getFilteredFestivalController,
-  getFestivalsByTypeController
+  getFestivalsByTypeController,
+  getShortestPathController
 } from '../controllers/festivalController.js';
 
 const router = express.Router();
@@ -137,6 +138,44 @@ router.get('/indoor', getFestivalsByTypeController);
  *                 $ref: '#/components/schemas/Festival'
  */
 router.get('/outdoor', getFestivalsByTypeController);
+
+/**
+ * @swagger
+ * /api/festivals/route:
+ *   post:
+ *     summary: Calculate the shortest path between multiple festivals
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               festival_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: An array of festival IDs to visit.
+ *             example:
+ *               festival_ids: [1, 2, 3]
+ *     responses:
+ *       200:
+ *         description: The optimal route and total distance.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 optimal_path:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Festival'
+ *                 total_distance_km:
+ *                   type: number
+ *       400:
+ *         description: Invalid input, e.g., not enough festival IDs.
+ */
+router.post('/route', getShortestPathController);
 
 // 반드시 default export 추가!
 export default router;

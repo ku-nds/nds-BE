@@ -187,3 +187,101 @@ export const getFestivalsByType = async (type, { limit, offset }) => {
     throw err; // 컨트롤러에서 500 처리
   }
 };
+
+
+// --- 최단 경로 계산 ---
+
+/**
+ * 두 지점 간의 직선 거리(Haversine 공식) 계산
+ * @param {{ latitude: number, longitude: number }} point1
+ * @param {{ latitude: number, longitude: number }} point2
+ * @returns {number} Distance in kilometers
+ */
+function haversineDistance(point1, point2) {
+    const R = 6371; // 지구 반지름 (km)
+    const dLat = (point2.latitude - point1.latitude) * (Math.PI / 180);
+    const dLon = (point2.longitude - point1.longitude) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(point1.latitude * (Math.PI / 180)) *
+        Math.cos(point2.latitude * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+/**
+ * 배열의 모든 순열을 생성하는 함수
+ * @param {Array} arr The input array
+ * @returns {Array<Array>} An array of all permutations
+ */
+function getPermutations(arr) {
+    if (arr.length === 1) {
+        return [arr];
+    }
+    const permutations = [];
+    for (let i = 0; i < arr.length; i++) {
+        const current = arr[i];
+        const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+        const remainingPerms = getPermutations(remaining);
+        for (let j = 0; j < remainingPerms.length; j++) {
+            permutations.push([current].concat(remainingPerms[j]));
+        }
+    }
+    return permutations;
+}
+
+/**
+ * 여러 축제 장소 간의 최단 경로 계산
+ * @param {number[]} festival_ids
+ */
+export async function getShortestPath(festival_ids) {
+    // 1. ID로 축제 정보(특히 좌표) 조회
+    const festivals = await FestivalEvent.findAll({
+        where: {
+            id: { [Op.in]: festival_ids }
+        },
+        attributes: ['id', 'event_name', 'place', 'latitude', 'longitude']
+    });
+
+    if (festivals.length !== festival_ids.length) {
+        const foundIds = festivals.map(f => f.id);
+        const missingIds = festival_ids.filter(id => !foundIds.includes(id));
+        throw new Error(`다음 ID에 해당하는 축제를 찾을 수 없습니다: ${missingIds.join(', ')}`);
+    }
+
+    // 2. 거리 매트릭스 생성 (실제로는 API 호출 대신 haversineDistance 사용)
+    const distanceMatrix = {};
+    for (const f1 of festivals) {
+        distanceMatrix[f1.id] = {};
+        for (const f2 of festivals) {
+            if (f1.id === f2.id) {
+                distanceMatrix[f1.id][f2.id] = 0;
+            } else {
+                distanceMatrix[f1.id][f2.id] = haversineDistance(f1, f2);
+            }
+        }
+    }
+
+    // 3. 모든 경로 순열을 탐색하여 최단 경로 찾기
+    const festivalPermutations = getPermutations(festivals);
+    let bestPath = [];
+    let minDistance = Infinity;
+
+    for (const path of festivalPermutations) {
+        let currentDistance = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+            currentDistance += distanceMatrix[path[i].id][path[i + 1].id];
+        }
+        if (currentDistance < minDistance) {
+            minDistance = currentDistance;
+            bestPath = path;
+        }
+    }
+
+    return {
+        optimal_path: bestPath,
+        total_distance_km: minDistance
+    };
+}

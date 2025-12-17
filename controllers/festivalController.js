@@ -1,4 +1,4 @@
-import { getAllFestivals, getNearbyFestivals, getFestivalsByType } from '../services/festivalService.js';
+import { getAllFestivals, getNearbyFestivals, getFestivalsByType, getFestivalsByCategory, getShortestPath } from '../services/festivalService.js';
 
 /**
  * 전체 축제 조회
@@ -55,8 +55,6 @@ export const getNearbyFestivalsController = async (req, res) => {
     res.status(500).json({ error: '서버 에러 발생' });
   }
 };
-
-import { getFestivalsByCategory } from '../services/festivalService.js';
 
 /**
  * 카테고리별 축제 조회
@@ -132,3 +130,21 @@ export const getFestivalsByTypeController = async (req, res) => {
     res.status(500).json({ error: '서버 에러 발생' });
   }
 };
+
+export const getShortestPathController = async (req, res) => {
+    try {
+        const { festival_ids } = req.body;
+
+        if (!festival_ids || !Array.isArray(festival_ids) || festival_ids.length < 2) {
+            return res.status(400).json({ error: '최소 2개 이상의 festival_ids를 배열 형태로 제공해야 합니다.' });
+        }
+
+        const result = await getShortestPath(festival_ids);
+        res.status(200).json(result);
+
+    } catch (error)
+    {
+        console.error('❌ getShortestPathController Error:', error);
+        res.status(500).json({ error: '서버 에러 발생' });
+    }
+}
